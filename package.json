@@ -4,10 +4,11 @@
   "description": "Small util to backup you code to a cloud",
   "main": "build/index.js",
   "bin": {
-    "git-prev": "build/index.js"
+    "last-hope-scanner": "build/index.js"
   },
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "start": "LOGGER=true node build/index.js"
   },
   "author": "resetand",
   "license": "ISC",

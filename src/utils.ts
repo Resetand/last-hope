@@ -73,7 +73,6 @@ export function toBytes(size: string): number {
     };
 
     const [_, amount, unit] = (size.toLowerCase().match(/^(\d+)\s*([a-z]+)?$/) ?? []) as [string, string, keyof typeof units];
-    console.debug({ amount, unit, size });
 
     if (!units[unit]) {
         throw new Error("Invalid size string");

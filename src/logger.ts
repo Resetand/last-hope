@@ -27,6 +27,7 @@ const logger = winston.createLogger({
     handleExceptions: true,
 
     exitOnError: false,
+    silent: process.env.LOGGER !== "true",
 });
 
 logger.add(

@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import path from "path";
 import logger from "./logger";
 import chokidar from "chokidar";
