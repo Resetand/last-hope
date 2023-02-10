@@ -161,3 +161,15 @@ export async function ensureDir(path: string) {
     );
     return path;
 }
+
+export const consoleLoading = (getMessage?: () => string) => {
+    const P = ["⠋", "⢹", "⠙", "⠇"];
+    let x = 0;
+
+    const timerId = setInterval(function () {
+        process.stdout.write("\r" + P[x++] + (getMessage ? " " + getMessage() : ""));
+        x &= P.length - 1;
+    }, 250);
+
+    return () => clearInterval(timerId);
+};

@@ -10,7 +10,8 @@
     "build": "tsc",
     "init": "NODE_ENV=dev node build/cli.js init",
     "start": "NODE_ENV=dev node build/cli.js start",
-    "restore": "NODE_ENV=dev node build/cli.js restore"
+    "restore": "NODE_ENV=dev node build/cli.js restore",
+    "ls": "NODE_ENV=dev node build/cli.js ls"
   },
   "author": "resetand",
   "license": "ISC",

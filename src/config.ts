@@ -1,7 +1,7 @@
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, existsSync } from "fs";
 import os from "os";
-import { ensureDir, normalizePattern, pick, toBytes } from "./utils";
+import { ensureDir, normalizePattern, pick, toBytes, tryCatch } from "./utils";
 import yaml from "yaml";
 import { parseIgnoreFileContent } from "./ignore";
 
@@ -25,9 +25,29 @@ export type Config = {
     commonIgnorePatterns: string[];
 };
 
-export async function initConfig(raw: RawConfig) {
+class InvalidConfigError extends Error {}
+
+const invalid = (message: string) => {
+    throw new InvalidConfigError(message);
+};
+
+type Mode = "replace" | "update";
+type Action = (prev: RawConfig | null) => RawConfig;
+
+export async function upsertConfig(action: RawConfig | Action, mode: Mode = "replace") {
     const filePath = path.join(os.homedir(), ".lh-config.yaml");
-    await fs.writeFile(filePath, yaml.stringify(raw));
+    const prev = await tryCatch(() => fs.readFile(filePath, "utf8").then((value) => yaml.parse(value)), null);
+
+    if (mode === "update" && !prev) {
+        if (!prev) return invalid('Config does not exists yes. Run "ls-backup init" to setup config');
+    }
+
+    const raw = validateRawConfig({
+        ...(mode === "update" ? prev : {}),
+        ...(action instanceof Function ? action(prev) : action),
+    });
+
+    await fs.writeFile(filePath, yaml.stringify(raw), "utf-8");
     return filePath;
 }
 
@@ -36,12 +56,13 @@ export const getConfig = async (): Promise<Config> => {
         return getDevConfig();
     }
 
-    const rawConfig: RawConfig = yaml.parse(await fs.readFile(CONFIG_FILE_PATH, "utf-8"));
-    const backupDir = path.join(pick(rawConfig, "cloudFolder"), ".lh-backup");
-    const maxFileSize = toBytes(pick(rawConfig, "maxFileSize", "42mb"));
-    const ignorePatterns = pick(rawConfig, "ignore", []);
-    const ignoreFrom = pick(rawConfig, "ignoreFrom", []);
-    const trackPaths = await parseTrackPaths(pick(rawConfig, "track"));
+    const raw: RawConfig = await validateRawConfig(yaml.parse(await fs.readFile(CONFIG_FILE_PATH, "utf-8")));
+
+    const backupDir = path.join(pick(raw, "cloudFolder"), ".lh-backup");
+    const maxFileSize = toBytes(pick(raw, "maxFileSize", "42mb"));
+    const ignorePatterns = pick(raw, "ignore", []);
+    const ignoreFrom = pick(raw, "ignoreFrom", []);
+    const trackPaths = pick(raw, "track").map(normalizePattern);
     const commonIgnorePatterns = await getCommonIgnorePatterns();
 
     return {
@@ -66,25 +87,28 @@ async function getDevConfig(): Promise<Config> {
     };
 }
 
-const parseTrackPaths = async (value?: string[]) => {
-    const handleOne = async (pathOrPattern: string) => {
-        if (pathOrPattern.endsWith("/*")) {
-            const dirPath = normalizePattern(pathOrPattern);
-            const entries = await fs.readdir(dirPath, { withFileTypes: true });
-            return entries.filter((stat) => stat.isDirectory()).map((stat) => path.join(dirPath, stat.name));
+async function validateRawConfig(cfg: RawConfig) {
+    if (!cfg.track?.length) {
+        return invalid(
+            'No track paths specified. Run "ls-backup init" to setup config or "ls-backup add [path]" to add path to the existing config'
+        );
+    }
+    if (!cfg.cloudFolder) {
+        return invalid('No cloudFolder specified. Run "ls-backup init" to setup config');
+    }
+
+    for (const trackPath of cfg.track) {
+        if (!(await (await fs.stat(normalizePattern(trackPath))).isDirectory())) {
+            return invalid(`The path "${trackPath}" should refer to a directory`);
         }
+    }
 
-        const stat = await fs.lstat(pathOrPattern);
+    if (!(await (await fs.stat(cfg.cloudFolder)).isDirectory())) {
+        return invalid(`The path "${cfg.cloudFolder}" should refer to a directory`);
+    }
 
-        if (!stat.isDirectory()) {
-            throw new Error(`Track path should refer to directory or directories`);
-        }
-
-        return pathOrPattern;
-    };
-
-    return (await Promise.all((value ?? []).map(handleOne))).flat();
-};
+    return cfg;
+}
 
 async function getCommonIgnorePatterns() {
     const fileContent = await fs.readFile(path.join(ASSETS_FOLDER, "common-ignore"), "utf-8");

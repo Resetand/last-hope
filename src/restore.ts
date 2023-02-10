@@ -6,7 +6,11 @@ import logger from "./logger";
 import { createReadStream } from "fs";
 import { getFilenames, tryCatch } from "./utils";
 
-export async function restoreFromBackup(backupDir: string, outputDir: string) {
+type Options = {
+    onExtracted?: (objectFilePath: string) => void;
+};
+
+export async function restoreFromBackup(backupDir: string, outputDir: string, options?: Options) {
     const objectsDir = path.join(backupDir, "objects");
     const objectsFiles = (await getFilenames(objectsDir)).map((name) => path.join(objectsDir, name));
 
@@ -15,6 +19,7 @@ export async function restoreFromBackup(backupDir: string, outputDir: string) {
             continue;
         }
         await tryCatch(() => extractObject(filePath, outputDir));
+        options?.onExtracted?.(filePath);
         logger.debug(`Extract object ${path.basename(filePath)}`);
     }
 }

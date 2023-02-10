@@ -16,7 +16,7 @@ type Options = {
 };
 
 export async function startDaemonOn(targetPath: string, options: Options): Promise<void> {
-    const persistQueue = async.queue((filePath: string, done) => {
+    const persistQueue = async.priorityQueue((filePath: string, done) => {
         return tryCatch(() => persistFile(filePath, options)).then(() => done());
     }, 10);
 
@@ -27,8 +27,8 @@ export async function startDaemonOn(targetPath: string, options: Options): Promi
     return new Promise((resolve) => {
         chokidar
             .watch(targetPath, { ignored: options.ignorePatterns })
-            .on("add", (filePath) => persistQueue.push(filePath))
-            .on("change", (filePath) => persistQueue.push(filePath))
+            .on("add", (filePath) => persistQueue.push(filePath, 1))
+            .on("change", (filePath) => persistQueue.push(filePath, 0))
             .on("unlink", (filePath) => unlinkQueue.push(filePath))
             .on("ready", () => persistQueue.drain(() => resolve()))
             .on("error", (error) => logger.debug("An error occurred while file watching", error));
