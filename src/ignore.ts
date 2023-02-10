@@ -2,14 +2,14 @@ import path from "path";
 import { promises as fsPromises } from "fs";
 import { excludeNil, normalizePattern } from "./utils";
 
-const parseIgnoreFileContent = (content: string) => {
+export const parseIgnoreFileContent = (content: string) => {
     return content
         .split("\n")
         .filter((line) => line.length > 0 && line[0] !== "#")
         .map(normalizePattern);
 };
 
-const getIgnoreFilePatterns = async (ignoreFile: string): Promise<string[]> => {
+export const getIgnoreFilePatterns = async (ignoreFile: string): Promise<string[]> => {
     const content = await fsPromises.readFile(ignoreFile, "utf-8").catch(() => "");
     return parseIgnoreFileContent(content).map((line) => path.join(path.dirname(ignoreFile), line));
 };

@@ -1,23 +1,23 @@
-import * as fs from "fs";
-import match from "micromatch";
 import tar from "tar";
+import zlib from "zlib";
+import match from "micromatch";
 import logger from "./logger";
 import { normalizePattern } from "./utils";
+import { createReadStream, createWriteStream } from "fs";
 
 type GzipDirectoryOptions = {
     ignorePatterns?: string[];
-    maxFileSize: number;
-    destination: string;
+    maxFileSize?: number;
 };
 
-export async function gzip(targetPath: string, options: GzipDirectoryOptions) {
+export async function gzip(targetPath: string, destinationPath: string, options?: GzipDirectoryOptions) {
     const filterEntity = (path: string, stat: tar.FileStat) => {
-        if (stat.size > options.maxFileSize) {
+        if (options?.maxFileSize && stat.size > options.maxFileSize) {
             logger.debug(`Skipping ${path} because it's larger than ${options.maxFileSize} bytes.`);
             return false;
         }
 
-        if (options.ignorePatterns?.length && match.some(path, options.ignorePatterns.map(normalizePattern), {})) {
+        if (options?.ignorePatterns?.length && match.some(path, options.ignorePatterns.map(normalizePattern), {})) {
             logger.debug(`Skipping ${path} because it's match some ignore patterns`);
             return false;
         }
@@ -31,5 +31,30 @@ export async function gzip(targetPath: string, options: GzipDirectoryOptions) {
         follow: true,
     };
 
-    tar.create(tarOptions, [targetPath]).pipe(fs.createWriteStream(options.destination));
+    return new Promise<void>((resolve, reject) => {
+        tar.create(tarOptions, [targetPath])
+            //
+            .pipe(createWriteStream(destinationPath))
+            .on("finish", resolve)
+            .on("error", reject);
+    });
+}
+
+export async function extractObject(filePath: string, extractTo: string) {
+    await new Promise<void>((resolve, reject) => {
+        try {
+            const unzip = zlib.createGunzip().on("error", reject);
+            const extractor = tar.extract({ cwd: extractTo, newer: true }).on("error", reject);
+
+            createReadStream(filePath, { autoClose: true })
+                //
+                .on("end", resolve)
+                .on("error", reject)
+                .pipe(unzip)
+                .pipe(extractor);
+        } catch (error) {
+            logger.debug("error while extractObject", error);
+            reject(error);
+        }
+    });
 }

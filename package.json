@@ -8,9 +8,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "init": "LOGGER=true node build/cli.js init",
-    "start": "LOGGER=true node build/cli.js start",
-    "restore": "LOGGER=true node build/cli.js restore"
+    "init": "NODE_ENV=dev node build/cli.js init",
+    "start": "NODE_ENV=dev node build/cli.js start",
+    "restore": "NODE_ENV=dev node build/cli.js restore"
   },
   "author": "resetand",
   "license": "ISC",

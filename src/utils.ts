@@ -1,6 +1,23 @@
 import type { OmitByValue } from "utility-types";
 import { promises as fs } from "fs";
 import crypto from "crypto";
+import logger from "./logger";
+
+export const memoize = <TFn extends (...args: any[]) => any>(fn: TFn): TFn => {
+    const cache = new Map<string, ReturnType<TFn>>();
+
+    return ((...args: Parameters<TFn>) => {
+        const cacheKey = JSON.stringify(Array.from(args));
+
+        if (cache.has(cacheKey)) {
+            return cache.get(cacheKey);
+        }
+
+        const result = fn(...args);
+        cache.set(cacheKey, result);
+        return result;
+    }) as TFn;
+};
 
 export const objectFilter = <T extends Record<string, unknown>>(
     source: T,
@@ -55,14 +72,6 @@ export function partitionBy<T>(items: T[], predicate: (item: T) => boolean) {
     }, initial);
 }
 
-export const readFileSafe = async (path: string, encoding: BufferEncoding = "utf8"): Promise<string> => {
-    try {
-        return fs.readFile(path, encoding);
-    } catch (error) {
-        return "";
-    }
-};
-
 export function toBytes(size: string): number {
     const units = {
         b: 1,
@@ -96,11 +105,59 @@ export function pick<TObj extends Record<PropertyKey, unknown>, TKey extends key
     throw new Error(`missing key ${String(key)}`);
 }
 
-export function createHash(data: crypto.BinaryLike) {
+// should i need use memoize here?
+export const createHash = (data: crypto.BinaryLike) => {
     return crypto.createHash("sha1").update(data).digest("hex");
-}
+};
 
 export async function getFilenames(dir: string) {
     const dirents = await fs.readdir(dir, { withFileTypes: true });
     return dirents.filter((dirent) => dirent.isFile()).map((dirent) => dirent.name);
+}
+
+const isPromise = (value: unknown): value is Promise<unknown> => {
+    const getTypeTag = (value: unknown) => Object.prototype.toString.call(value).slice(8, -1);
+    return !!value && getTypeTag(value) === "Promise";
+};
+
+type Fallback<T> = ((err: unknown) => T) | T;
+type TryCatch = {
+    <T, E = T>(fn: () => T, fallback?: Fallback<E>): E | T;
+    <T, E = T>(fn: () => Promise<T>, fallback?: Fallback<Promise<E> | E>): Promise<T | E>;
+};
+
+const _DEFAULT_FALLBACK = () => undefined!;
+
+/**
+ * Оборачивает вызов функции в try-catch
+ * @param fn - исполняемая функция (Может возвращать Promise)
+ * @param fallback - значение которое возвращается в случае исключения
+ */
+export const tryCatch: TryCatch = (fn: () => unknown | Promise<unknown>, fallback: Fallback<unknown> = _DEFAULT_FALLBACK) => {
+    const onFallback = (e: unknown) => {
+        if (fallback === _DEFAULT_FALLBACK) {
+            // log an error
+            logger.debug(`Error occurred during ${fn}, but handled`, e);
+        }
+        return fallback instanceof Function ? fallback(e) : fallback;
+    };
+
+    try {
+        const resOrPromise = fn();
+        return isPromise(resOrPromise) ? resOrPromise.catch((e) => onFallback(e)) : resOrPromise;
+    } catch (error) {
+        return onFallback(error);
+    }
+};
+
+export async function ensureDir(path: string) {
+    await tryCatch(
+        () => fs.mkdir(path, { recursive: true }),
+        (error: any) => {
+            if (error.code !== "EEXIST") {
+                throw error;
+            }
+        }
+    );
+    return path;
 }
