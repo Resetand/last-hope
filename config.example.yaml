@@ -1,0 +1,12 @@
+track:
+    - /Users/kamachekhin/code/*
+
+maxFileSize: 42mb
+
+ignore:
+    - .git
+    - .next
+    - node_modules
+
+ignoreFrom:
+    - .gitignore

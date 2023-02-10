@@ -27,7 +27,7 @@ const logger = winston.createLogger({
     handleExceptions: true,
 
     exitOnError: false,
-    silent: process.env.LOGGER !== "true",
+    // silent: process.env.LOGGER !== "true",
     transports: [new winston.transports.Console({ format })],
 });
 

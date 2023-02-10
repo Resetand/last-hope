@@ -2,19 +2,6 @@ import path from "path";
 import { promises as fsPromises } from "fs";
 import { excludeNil, normalizePattern } from "./utils";
 
-// const FROM_FILE_PREFIX = "from-file:";
-
-// export async function resolveIgnoreConfig(config: string, dir: string) {
-//     const [rawPatterns, rawFiles] = partitionBy(parseIgnoreFileContent(config), (line) => !line.startsWith(FROM_FILE_PREFIX));
-
-//     const commonPatterns = rawPatterns.map((r) => `*/**/${r}`);
-//     const files = rawFiles.map((r) => r.replace(FROM_FILE_PREFIX, ""));
-
-//     const collectedPatterns = await collectIgnoreFilePatterns(dir, files);
-
-//     return [...commonPatterns, ...collectedPatterns];
-// }
-
 const parseIgnoreFileContent = (content: string) => {
     return content
         .split("\n")
