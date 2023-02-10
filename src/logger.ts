@@ -28,18 +28,7 @@ const logger = winston.createLogger({
 
     exitOnError: false,
     silent: process.env.LOGGER !== "true",
+    transports: [new winston.transports.Console({ format })],
 });
-
-logger.add(
-    new winston.transports.Console({
-        format: winston.format.combine(
-            winston.format.simple(),
-            winston.format.colorize(),
-            winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
-            winston.format.json(),
-            myFormat
-        ),
-    })
-);
 
 export default logger;
